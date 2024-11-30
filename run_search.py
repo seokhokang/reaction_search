@@ -62,15 +62,14 @@ def get_embeddings():
   
     ref_rid_list = np.array(ref_rid_list)        
     ref_embed_list = np.vstack(ref_embed_list)
+    ref_embed_list = torch.FloatTensor(ref_embed_list)
+    V = None
 
-    
     # dimensionality reduction
     if use_dim_reduction:
         ref_cnt = ref_embed_list.shape[0]
         original_dim = ref_embed_list.shape[1] // 2
-        
-        ref_embed_list = torch.FloatTensor(ref_embed_list)
-        
+
         ref_embed_list = torch.cat([ref_embed_list[:,:original_dim], ref_embed_list[:,original_dim:]], 0)
         
         _, S, V = torch.pca_lowrank(ref_embed_list, q=64, center=True, niter=2)
@@ -81,10 +80,6 @@ def get_embeddings():
         
         ref_embed_list = torch.matmul(ref_embed_list, V)
         ref_embed_list = torch.cat([ref_embed_list[:ref_cnt], ref_embed_list[ref_cnt:]], 1)
-        V = V.cpu()
-    
-        
-    ref_embed_list = ref_embed_list.cpu()
 
     return ref_rid_list, ref_embed_list, V
     
@@ -97,24 +92,20 @@ trainer.load(model_path)
 
 
 # extract reaction embeddings
-if os.path.exists('./embed/%s_embeddings.npz'%identifier) and os.path.exists('./embed/%s_embeddings_reduced.npz'%identifier):
+if not use_dim_reduction and os.path.exists('./embed/%s_embeddings.npz'%identifier):
 
-    if use_dim_reduction:
-        pca = np.load('./embed/%s_pca.npz'%identifier)
-        V = pca['pc']
-        
-        data = np.load('./embed/%s_embeddings_reduced.npz'%identifier)
-        ref_rid_list = data['ids']
-        ref_embed_list = data['embeds'] 
-        
-        V = torch.FloatTensor(V)
-    
-    else:
-        data = np.load('./embed/%s_embeddings.npz'%identifier)
-        ref_rid_list = data['ids']
-        ref_embed_list = data['embeds']
+    data = np.load('./embed/%s_embeddings.npz'%identifier)
+    ref_rid_list = data['ids']
+    ref_embed_list = torch.FloatTensor(data['embeds'])
 
-    ref_embed_list = torch.FloatTensor(ref_embed_list)
+elif use_dim_reduction and os.path.exists('./embed/%s_embeddings_reduced.npz'%identifier):
+
+    pca = np.load('./embed/%s_pca.npz'%identifier)
+    V = torch.FloatTensor(pca['pc'])
+
+    data = np.load('./embed/%s_embeddings_reduced.npz'%identifier)
+    ref_rid_list = data['ids']
+    ref_embed_list = torch.FloatTensor(data['embeds'])
 
 else:
 
