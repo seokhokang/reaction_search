@@ -302,7 +302,7 @@ for iter_idx in range(n_updating+1):
     
             iter_score.append(rating)
         
-            #print('RANK %d; RX.ID %s; {product: %s, reactant: %s}; dist %.3f; rating %d'%(k, rid, res_product, res_reactant, np.sqrt(-sim[idx]), rating))
+            #print('RANK %d; RX.ID %s; {product: %s, reactant: %s}; dist %.3f; rating %d'%(len(iter_score), rid, res_product, res_reactant, np.sqrt(-sim[idx]), rating))
         
             if len(iter_score) == n_retrieve:
                 break  
