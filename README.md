@@ -15,11 +15,14 @@ Pytorch implementation of the method described in the paper [Enhancing Chemical 
 - **model.py** - Defines the neural network model architecture.
 - **train.py** -  Classes and functions for model training and inference.
 - **scenario.py** - The five user preference scenarios described in the paper.
-- **util.py** - Functions used across run scripts.
+- **util.py** - Functions used across scripts.
 - **run_train.py** - Script for model training (representation learning)
 - **run_product_prediction.py** - Script for reaction product prediction
 - **run_search.py** - Script for chemical reaction search
 - **run_feedback.py** - Script for chemical reaction search with user feedback
+- **config.yaml** - Default configuration file for running scripts.
+- **requirements.txt** - Package dependencies required.
+
 
 ## Usage Example
 
