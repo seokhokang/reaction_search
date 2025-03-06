@@ -2,7 +2,8 @@
 Pytorch implementation of the method described in the paper [Enhancing Chemical Reaction Search through Contrastive Representation Learning and Human-in-the-Loop](#)
 
 ## Overview
-- This study introduces an advanced chemical reaction search mechanism that refines search results based on user input. It employs contrastive representation learning to train models that embed chemical reactions as numerical vectors, facilitating efficient and relevant searches. Dimensionality reduction techniques are applied to optimize these vectors for quicker processing, while human-in-the-loop integration allows for continuous improvement of the model based on user feedback. This GitHub repository provides running examples of the proposed method on the USPTO-479k dataset.
+- This study introduces an advanced chemical reaction search mechanism that refines search results based on user input. It employs contrastive representation learning to train models that embed chemical reactions as numerical vectors, facilitating efficient and relevant searches. Dimensionality reduction techniques are applied to optimize these vectors for quicker processing, while human-in-the-loop integration allows for continuous improvement of the model based on user feedback.
+- This GitHub repository provides running examples of the proposed method on the USPTO-479k dataset.
 
 ## Components
 - **data/*** - Directory for data files.
