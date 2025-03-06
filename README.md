@@ -26,24 +26,32 @@ Pytorch implementation of the method described in the paper [Enhancing Chemical 
 - The USPTO-479k dataset can be downloaded from
   - https://github.com/hwwang55/MolR/tree/master/data/USPTO-479k
 - After downloading the dataset, preprocess it by running the following command:
-  `python ./data/uspto479k.py`
+```python
+python ./data/uspto479k.py
+```
 
 ### Training a representation model
 - To train the representation model on the USPTO-479k dataset, run the following command:
-  `python run_train.py`
+```python
+python run_train.py
+```
 - The trained model is stored in the `./model/` directory.
 - Data embeddings and principal components are stored in `./embed/` directory.
 
 ### Reaction product prediction
 - To perform reaction product prediction, run the following command:
-  `python run_product_prediction.py`
+```python
+python run_product_prediction.py
+```
 
 ### Chemical reaction search with user feedback
 - To perform a chemical reaction search with user feedback,
   first select from preference scenarios 1-5 
   or manually define the scenario to positively/negatively rate each retrieved record.
 - For example, to use scenario 1, run the following command:
-  `python run_feedback.py -s 1`
+```python
+python run_feedback.py -s 1
+```
 
 ## Dependencies
 - **Python**
