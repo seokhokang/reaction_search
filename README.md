@@ -29,7 +29,7 @@ Pytorch implementation of the method described in the paper [Enhancing Chemical 
 ### Data download and processing
 - The USPTO-479k dataset can be downloaded from
   - https://github.com/hwwang55/MolR/tree/master/data/USPTO-479k
-- After downloading the dataset, preprocess it by running the following command:
+- After downloading the dataset and placing it in the `./data/` directory, preprocess it by running the following command:
 ```python
 python ./data/uspto479k.py
 ```
