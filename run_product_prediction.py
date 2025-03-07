@@ -1,49 +1,56 @@
-import os, sys
+"""Rection product prediction using a trained representation model.
+
+This script:
+- Loads a reaction dataset and a GIN-based representation model.
+- Extracts product and query embeddings, and optionally performs dimensionality reduction.
+- Evaluates the product prediction performance.
+
+Usage example (identifier: 'paper', dim_reduction: True):
+    python run_product_prediction.py -t paper -r 1
+"""
+
+import os, sys, yaml
 import numpy as np
 import pickle as pkl
-
 import torch
-
 from torch.utils.data import DataLoader
 from dataset import ReactionDataset, collate_reaction, collate_product
-
-from model import GINPredictor
 from train import Trainer
-
 from util import euclidean_sim
-
 from argparse import ArgumentParser
 
-
+# ------------------------------
+# Configurations and Setup
+# ------------------------------
+config_url = 'config.yaml'
+with open(config_url, 'r') as f:
+    config = yaml.safe_load(f)  
+    
 parser = ArgumentParser()
 parser.add_argument('--identifier', '-t', type=str, default='paper')
-parser.add_argument('--batch_size', '-b', type=int, default=4096)
 parser.add_argument('--dim_reduction', '-r', type=int, default=1)
-
 args = parser.parse_args()
 
-
-# configurations
 cuda = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device:', cuda)
 identifier = args.identifier
-batch_size = args.batch_size
 use_dim_reduction = (args.dim_reduction == 1)
 
+batch_size = config['train']['batch_size']
+
+# Load molecular dictionary
 with open('./data/uspto_mol_dict.pkl', 'rb') as f:
     mol_dict = pkl.load(f)
 
-graph_net = GINPredictor(node_in_feats=140, edge_in_feats=8)
-
-
-# load the representation model
+# Load the representation model
 model_path = './model/%s_checkpoint.pt'%identifier
 
-trainer = Trainer(graph_net, model_path, mol_dict, cuda)
+trainer = Trainer(None, None, mol_dict, cuda)
 trainer.load(model_path)
 
-
-# extract product embeddings
+# ------------------------------
+# Extract Product Embeddings
+# ------------------------------
 product_path = './embed/%s_test_product_embeddings.npz'%identifier
 
 if os.path.exists(product_path):
@@ -77,8 +84,9 @@ else:
         
     np.savez_compressed(product_path, ids = product_pid_list, embeds = product_embed_list)
 
-
-# extract query embeddings
+# ------------------------------
+# Extract Query Embeddings
+# ------------------------------
 query_path = './embed/%s_test_query_embeddings.npz'%identifier
 query_data = ReactionDataset('uspto_test', mol_dict)
 query_dict = query_data.data
@@ -112,20 +120,24 @@ else:
     
     np.savez_compressed(query_path, ids = query_rid_list, embeds = query_embed_list)
 
-
-# prepare   
+# ------------------------------
+# Prepare Embeddings
+# ------------------------------ 
 query_embed_list = torch.FloatTensor(query_embed_list).to(cuda)
 product_embed_list = torch.FloatTensor(product_embed_list).to(cuda)
 if use_dim_reduction:
-    print('use dim reduction')
+    print('Performing dimensionality reduction...')
     pca = np.load('./embed/%s_pca.npz'%identifier)
     V = torch.FloatTensor(pca['pc']).to(cuda)
     
     query_embed_list = torch.matmul(query_embed_list, V)
     product_embed_list = torch.matmul(product_embed_list, V)
 
+print(query_embed_list.shape, product_embed_list.shape)
 
-# product prediction performance evaluation
+# ------------------------------
+# Product Prediction Performance Evaluation
+# ------------------------------ 
 rank_list = []
 for i, rid in enumerate(query_rid_list):
 

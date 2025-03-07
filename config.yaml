@@ -1,0 +1,15 @@
+# config.yaml
+
+data:
+  node_in_feats: 140
+  edge_in_feats: 10 
+  
+model:
+  embed_dim: 512
+
+train:
+  tau: 100
+  batch_size: 4096
+  
+pca:
+  frac_var: 0.95

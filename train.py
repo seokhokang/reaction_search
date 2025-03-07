@@ -1,3 +1,15 @@
+"""A Trainer class that handles model training and fine-tuning operations, specialized in learning representations for chemical reactions.
+
+Key Features:
+- Train neural network models with contrastive loss for learning embeddings.
+- Fine-tune models with margin ranking loss using user interactions.
+- Save and load model checkpoints.
+- Generate embeddings for chemical reaction components.
+
+Class:
+- Trainer: Training and fine-tuning a representation model.
+"""
+
 import numpy as np
 import pickle as pkl
 import dgl, torch
@@ -10,32 +22,56 @@ from util import euclidean_sim
 
 
 class Trainer:
-
-    def __init__(self, net, model_path, mol_dict, cuda, lr = 1e-4, weight_decay = 1e-8, tau = 100):
+    """Trainer class for training and fine-tuning a representation model.
     
-        self.net = net.to(cuda)
-        self.model_path = model_path
-        self.mol_dict = mol_dict
-        
-        self.cuda = cuda
-        
-        self.batch_size = 4096
-        self.tau = tau #temperature scaling in the SimCLR loss
+    This class provides functionalities for training and fine-tuning a representation model
+    with contrastive loss (InfoNCE) and ranking-based margin loss.
+    The model learns embeddings for chemical reactions.
+    """
 
-        self.loss_fn = torch.nn.CrossEntropyLoss()
-        self.optimizer = Adam(self.net.parameters(), lr = lr, weight_decay = weight_decay)
+    def __init__(self, net, save_path, mol_dict, cuda, tau = 100):
+        """Initializes an instance of the Trainer class.
+
+        Args:
+            net (torch.nn.Module): The neural network model.
+            save_path (str): Path to save the trained model.
+            mol_dict (dict): Dictionary mapping molecular indices to their SMILES representations.
+            cuda (torch.device): Device to run the model (GPU/CPU).
+            tau (float, optional): Temperature scaling hyperparameter for contrastive loss. Default is 100.
+        """
+
+        self.save_path = save_path
+        self.mol_dict = mol_dict
+        self.cuda = cuda
+        self.tau = tau
+        
+        if net is not None: self.net = net.to(self.cuda)
 
 
     def load(self, model_path):
+        """Loads a trained model from the specified file path.
 
-        checkpoint = torch.load(model_path)
-        
-        self.net.load_state_dict(checkpoint['graph_net'])
-        if checkpoint['optimizer'] is not None:
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
+        Args:
+            model_path (str): Path to the saved model file.
+        """
+    
+
+        self.net = torch.load(model_path).to(self.cuda)
 
         
-    def train(self, train_loader, valid_loader, max_epochs = 200, patience = 20):
+    def train(self, train_loader, valid_loader, lr = 1e-4, weight_decay = 1e-8, max_epochs = 200, patience = 20):
+        """Trains the model using contrastive representation learning.
+
+        Args:
+            train_loader (torch.utils.data.DataLoader): DataLoader for training data.
+            valid_loader (torch.utils.data.DataLoader): DataLoader for validation data.
+            lr (float, optional): Learning rate. Default is 1e-4.
+            weight_decay (float, optional): Weight decay for regularization. Default is 1e-8.
+            max_epochs (int, optional): Maximum number of training epochs. Default is 200.
+            patience (int, optional): Number of epochs to wait before early stopping. Default is 20.
+        """
+
+        optimizer = Adam(self.net.parameters(), lr = lr, weight_decay = weight_decay)
 
         val_log = np.zeros(max_epochs)
         best_val_loss = 1e5
@@ -52,11 +88,15 @@ class Trainer:
                 product_pred = reactant# + reagent
 
                 features = torch.cat([product, product_pred], dim=0)
-                loss = self._info_nce_loss(features)
+                try:
+                    loss = self._info_nce_loss(features)
+                except:
+                    continue
 
-                self.optimizer.zero_grad()
+                optimizer.zero_grad()
                 loss.backward()
-                self.optimizer.step()
+                torch.nn.utils.clip_grad_norm_(self.net.parameters(), 5.0)
+                optimizer.step()
             
                 trn_loss.append(loss.detach().cpu().numpy())
 
@@ -78,16 +118,11 @@ class Trainer:
 
             val_log[epoch] = np.mean(val_loss)
 
-            if val_log[epoch] < best_val_loss:
+            if val_log[epoch] < best_val_loss - 1e-4:
                 best_val_loss = val_log[epoch]
                 no_improve_cnt = 0
 
-                checkpoint = { 
-                    'epoch': epoch,
-                    'graph_net': self.net.state_dict(),
-                    'optimizer': self.optimizer.state_dict()
-                }
-                torch.save(checkpoint, self.model_path)
+                torch.save(self.net, self.save_path)
             
             else:
                 no_improve_cnt += 1
@@ -98,18 +133,29 @@ class Trainer:
                 print('-- earlystopping')
                 break
 
-        self.load(self.model_path)  
+        self.load(self.save_path)  
   
 
-    def update(self, qvec_list, rvec_list, rating_list, train_loader, max_iter = 100):
+    def update(self, qvec_list, rvec_list, rating_list, train_loader, max_iter = 100, margin_delta = 100, w_lambda = 0.01):
+        """Fine-tunes the model using margin ranking loss with user-rated records.
+
+        Args:
+            qvec_list (torch.Tensor): Query vector embeddings.
+            rvec_list (torch.Tensor): Record vector embeddings.
+            rating_list (torch.Tensor): Ratings for query-record pairs.
+            train_loader (torch.utils.data.DataLoader): DataLoader for training data.
+            max_iter (int, optional): Maximum iterations for updating. Default is 100.
+            margin_delta (float, optional): Margin hyperparameter for margin ranking loss. Default is 100.
+            w_lambda (float, optional): Weight assigned to margin ranking loss. Default is 0.01.
+        """
 
         print('Model Update -- NO. QUERIES: %d'%len(qvec_list))
 
         self.net.train()
 
+        # switch off batch normalization
         for m in self.net.modules():
             if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
-                #print('bn switch off') # to be removed
                 m.eval()
                 m.weight.requires_grad = False
                 m.bias.requires_grad = False
@@ -156,7 +202,7 @@ class Trainer:
                     distmat = - euclidean_sim(q_embed, r_embed)
                     rating = rating.reshape(1, -1).to(self.cuda)
 
-                    reldist = (rating - rating.T) * (distmat - distmat.T) + torch.abs(rating - rating.T) * 100 #margin
+                    reldist = (rating - rating.T) * (distmat - distmat.T) + torch.abs(rating - rating.T) * margin_delta #margin
                     mask = torch.triu(torch.ones(reldist.shape, dtype=torch.bool), diagonal=1)
 
                     loss_update += torch.mean(torch.clamp(reldist[mask], min = 0, max = None))
@@ -164,10 +210,11 @@ class Trainer:
                 loss_update = loss_update / len(qvec_list)
 
                 # final loss
-                loss = loss_cl + 0.01 * loss_update
+                loss = loss_cl + w_lambda * loss_update
     
                 update_optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.net.parameters(), 5.0)
                 update_optimizer.step()
                 
                 iter_cnt += 1
@@ -178,15 +225,20 @@ class Trainer:
                     
                 if iter_cnt == max_iter: break
 
-        checkpoint = { 
-            'epoch': 'updated',
-            'graph_net': self.net.state_dict(),
-            'optimizer': None
-        }
-        torch.save(checkpoint, self.model_path)
+        torch.save(self.net, self.save_path)
 
 
     def embed(self, g_p = None, g_r = None, to_numpy = True):
+        """Computes embeddings for given reactions.
+
+        Args:
+            g_p (torch.Tensor, optional): Graph representation of product molecules.
+            g_r (torch.Tensor, optional): Graph representation of reactant molecules.
+            to_numpy (bool, optional): If True, converts embeddings to NumPy array. Default is True.
+
+        Returns:
+            tuple: Product target and prediction vectors
+        """
 
         product = None
         product_pred = None
@@ -204,6 +256,16 @@ class Trainer:
 
 
     def _info_nce_loss(self, features):
+        """Computes the InfoNCE loss for contrastive learning using Euclidean similarity.
+
+        Args:
+            features (torch.Tensor): Feature representations of reactions.
+
+        Returns:
+            torch.Tensor: Computed InfoNCE loss.
+        """
+
+        loss_fn = torch.nn.CrossEntropyLoss()
 
         simmat = euclidean_sim(features)
         
@@ -220,6 +282,6 @@ class Trainer:
         logits = torch.cat([positives, negatives], dim=1)
         labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.cuda)
         
-        loss = self.loss_fn(logits/self.tau, labels)
+        loss = loss_fn(logits/self.tau, labels)
         
         return loss
