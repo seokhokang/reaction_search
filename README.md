@@ -67,7 +67,7 @@ python run_feedback.py -s 1
 ```
 @Article{Kwon2025,
   title={Enhancing chemical reaction search through contrastive representation learning and human-in-the-loop},
-  author={Kwon, Youngchun and Jeon, Hyunjung and Choi, Joonhyuk and Choi, Youn-Suk and Kang, Seokho},
+  author={Kwon, Youngchun and Jeon, Hyunjeong and Choi, Joonhyuk and Choi, Youn-Suk and Kang, Seokho},
   journal={Journal of Cheminformatics},
   volume={17},
   pages={51},
