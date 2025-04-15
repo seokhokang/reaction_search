@@ -64,4 +64,14 @@ python run_feedback.py -s 1
 - **RDKit**
 
 ## Citation
-
+```
+@Article{Kwon2025,
+  title={Enhancing chemical reaction search through contrastive representation learning and human-in-the-loop},
+  author={Kwon, Youngchun and Jeon, Hyunjung and Choi, Joonhyuk and Choi, Youn-Suk and Kang, Seokho},
+  journal={Journal of Cheminformatics},
+  volume={17},
+  pages={51},
+  year={2025},
+  doi={10.1186/s13321-025-00987-5}
+}
+```
